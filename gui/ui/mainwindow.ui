@@ -78,6 +78,7 @@
     <addaction name="actionLookupState"/>
     <addaction name="actionShowThumbnails"/>
     <addaction name="actionTrim"/>
+    <addaction name="actionToggleCalls"/>
     <addaction name="actionLeakTrace"/>
     <addaction name="separator"/>
     <addaction name="actionOptions"/>
@@ -684,6 +685,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+I</string>
+   </property>
+  </action>
+  <action name="actionToggleCalls">
+   <property name="text">
+    <string>Toggle &amp;Calls</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+/</string>
    </property>
   </action>
   <action name="actionOptions">

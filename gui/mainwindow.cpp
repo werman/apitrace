@@ -497,6 +497,58 @@ void MainWindow::trim()
     trimEvent();
 }
 
+void MainWindow::toggleCalls() {
+    QItemSelection selection = m_ui.callView->selectionModel()->selection();
+    if (selection.empty()) {
+        QMessageBox::warning(
+            this, tr("Unknown Event"),
+            tr("To toggle calls select events in the event list."));
+        return;
+    }
+
+    QModelIndexList selectedIndexes = selection.indexes();
+
+    for (const QModelIndex& index : selectedIndexes) {
+        ApiTraceEvent *event =
+            index.data(ApiTraceModel::EventRole).value<ApiTraceEvent*>();
+        if (event->type() == ApiTraceEvent::Call) {
+            event->setIgnored(false);
+        }
+    }
+
+    m_ignoredCalls.merge(selection, QItemSelectionModel::Toggle);
+
+    selectedIndexes = m_ignoredCalls.indexes();
+    for (const QModelIndex& index : selectedIndexes) {
+        ApiTraceEvent *event =
+            index.data(ApiTraceModel::EventRole).value<ApiTraceEvent*>();
+        if (event->type() == ApiTraceEvent::Call){
+            event->setIgnored(true);
+        }
+    }
+
+    QList<RetracerCallRange> callRanges;
+    for (const QItemSelectionRange& range : m_ignoredCalls) {
+        ApiTraceEvent *eventTop =
+            range.topLeft().data(ApiTraceModel::EventRole).value<ApiTraceEvent*>();
+
+        ApiTraceEvent *eventBottom =
+            range.bottomRight().data(ApiTraceModel::EventRole).value<ApiTraceEvent*>();
+
+        if (eventTop->type() == ApiTraceEvent::Call && eventBottom->type() == ApiTraceEvent::Call) {
+            RetracerCallRange callRange;
+            callRange.m_callStartNo = static_cast<ApiTraceCall*>(eventTop)->index();
+            callRange.m_callEndNo = static_cast<ApiTraceCall*>(eventBottom)->index();
+
+            callRanges.push_back(callRange);
+        }
+    }
+
+    m_retracer->setCallsToIgnore(callRanges);
+
+    m_ui.callView->model()->dataChanged(QModelIndex(), QModelIndex());
+}
+
 static void
 variantToString(const QVariant &var, QString &str)
 {
@@ -1002,6 +1054,8 @@ void MainWindow::initObjects()
     m_ui.callView->header()->swapSections(0, 1);
     m_ui.callView->setColumnWidth(1, 42);
     m_ui.callView->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_ui.callView->setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectItems);
+    m_ui.callView->setSelectionMode(QAbstractItemView::SelectionMode::ExtendedSelection);
 
     m_progressBar = new QProgressBar();
     m_progressBar->setRange(0, 100);
@@ -1117,6 +1171,8 @@ void MainWindow::initConnections()
             this, SLOT(lookupState()));
     connect(m_ui.actionTrim, SIGNAL(triggered()),
             this, SLOT(trim()));
+    connect(m_ui.actionToggleCalls, SIGNAL(triggered()),
+            this, SLOT(toggleCalls()));
     connect(m_ui.actionShowThumbnails, SIGNAL(triggered()),
             this, SLOT(showThumbnails()));
     connect(m_ui.actionOptions, SIGNAL(triggered()),
@@ -1208,6 +1264,7 @@ void MainWindow::updateActionsState(bool traceLoaded, bool stopped)
         m_ui.actionLookupState   ->setEnabled(true);
         m_ui.actionShowThumbnails->setEnabled(true);
         m_ui.actionTrim          ->setEnabled(true);
+        m_ui.actionToggleCalls   ->setEnabled(true);
     }
     else {
         /* File */
@@ -1226,6 +1283,7 @@ void MainWindow::updateActionsState(bool traceLoaded, bool stopped)
         m_ui.actionLookupState   ->setEnabled(false);
         m_ui.actionShowThumbnails->setEnabled(false);
         m_ui.actionTrim          ->setEnabled(false);
+        m_ui.actionToggleCalls   ->setEnabled(false);
     }
 }
 

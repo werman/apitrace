@@ -54,6 +54,9 @@ void ApiCallDelegate::paint(QPainter *painter,
             painter->drawPixmap(option.rect.topLeft(), px);
             offset += QPoint(textSize.height() + 5, 0);
         }
+
+        painter->setPen(Qt::GlobalColor::black);
+
         if (event->type() == ApiTraceEvent::Call) {
             ApiTraceCall *call = static_cast<ApiTraceCall*>(event);
             const QImage & thumbnail = call->thumbnail();
@@ -74,6 +77,9 @@ void ApiCallDelegate::paint(QPainter *painter,
                                                  textSize.height());
                 painter->drawPixmap(offset, px);
                 offset += QPoint(textSize.height() + 5, 0);
+            }
+            if (call->ignored()) {
+               painter->setPen(Qt::GlobalColor::lightGray);
             }
         }
 

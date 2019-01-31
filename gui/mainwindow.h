@@ -75,6 +75,7 @@ private slots:
     void lookupState();
     void showThumbnails();
     void trim();
+    void toggleCalls();
     void showSettings();
     void leakTrace();
     void leakTraceFinished();
@@ -178,4 +179,6 @@ private:
     ApiTraceEvent *m_nonDefaultsLookupEvent;
 
     ProfileDialog* m_profileDialog;
+
+    QItemSelection m_ignoredCalls;
 };
