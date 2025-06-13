@@ -316,5 +316,53 @@ dumpDevice(StateWriter &writer, IDirect3DSwapChain9 *pSwapChain)
     }
 }
 
+void
+waitForIdle(IDirect3DDevice9* pDevice)
+{
+    // SetFVF also replaces the vertex declaration. A state block preserves
+    // the declaration, shader, stream bindings and their COM references,
+    // including programmable/instanced state that a fixed-function dummy
+    // draw must temporarily override. Do not alter state if capture fails.
+    com_ptr<IDirect3DStateBlock9> savedState;
+    if (!pDevice || FAILED(pDevice->CreateStateBlock(D3DSBT_ALL, &savedState))) {
+        return;
+    }
+
+    struct Vertex { float x, y, z; };
+    IDirect3DVertexBuffer9 *vb = nullptr;
+
+    // Create a dynamic vertex buffer
+    if (SUCCEEDED(pDevice->CreateVertexBuffer(sizeof(Vertex) * 3,
+                                             D3DUSAGE_DYNAMIC,
+                                             D3DFVF_XYZ,
+                                             D3DPOOL_DEFAULT,
+                                             &vb,
+                                             nullptr)))
+    {
+        // Fill dummy triangle (degenerate and off-screen)
+        Vertex* vertices = nullptr;
+        if (SUCCEEDED(vb->Lock(0, 0, (void**)&vertices, D3DLOCK_DISCARD)))
+        {
+            vertices[0] = { -1e5f, -1e5f, 0.0f };
+            vertices[1] = { -1e5f, -1e5f, 0.0f };
+            vertices[2] = { -1e5f, -1e5f, 0.0f };
+            vb->Unlock();
+        }
+
+        pDevice->SetStreamSource(0, vb, 0, sizeof(Vertex));
+        pDevice->SetStreamSourceFreq(0, 1);
+        pDevice->SetVertexShader(nullptr);
+        pDevice->SetFVF(D3DFVF_XYZ);
+        pDevice->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 1);
+
+        // This Lock will now sync with GPU since the buffer was actually used
+        if (SUCCEEDED(vb->Lock(0, 0, (void**)&vertices, 0)))
+            vb->Unlock();
+
+        vb->Release();
+    }
+
+    savedState->Apply();
+}
 
 } /* namespace d3dstate */
