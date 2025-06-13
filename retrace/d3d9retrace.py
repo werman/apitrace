@@ -323,6 +323,15 @@ class D3DRetracer(Retracer):
         # process events after presents
         if method.name == 'Present':
             print(r'    d3dretrace::processEvents();')
+        if method.name in ('Present', 'PresentEx'):
+            if interface.name in ('IDirect3DDevice8', 'IDirect3DDevice8Ex'):
+                print(r'    if (retrace::waitForIdle) {')
+                print(r'        d3dstate::waitForIdle(d3d8Dumper.pLastDevice);')
+                print(r'    }')
+            if interface.name in ('IDirect3DDevice9', 'IDirect3DDevice9Ex'):
+                print(r'    if (retrace::waitForIdle) {')
+                print(r'        d3dstate::waitForIdle(d3d9Dumper.pLastDevice);')
+                print(r'    }')
 
         def mapping_subkey():
             # A single texture object might have multiple mappings.  This key
