@@ -155,6 +155,8 @@ extern bool ignoreRetvals;
 
 extern bool contextCheck;
 
+extern bool waitForIdle;
+
 /**
  * Add profiling data to the dump when retracing.
  */

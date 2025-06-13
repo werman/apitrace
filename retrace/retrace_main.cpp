@@ -126,6 +126,7 @@ bool singleThread = false;
 bool ignoreRetvals = false;
 bool contextCheck = true;
 bool snapshotForceBackbuffer = false;
+bool waitForIdle = false;
 int64_t minCpuTime = 1000;
 
 retrace::EQueryHandling queryResultHandling = retrace::QUERY_SKIP;
@@ -860,6 +861,7 @@ enum {
     QUERY_HANDLING_OPT,
     QUERY_CHECK_TOLARANCE_OPT,
     IGNORE_CALLS_OPT,
+    WAIT_FOR_IDLE_OPT,
     VERSION_OPT,
 };
 
@@ -914,6 +916,7 @@ longOptions[] = {
     {"no-context-check", no_argument, 0, NO_CONTEXT_CHECK},
     {"min-cpu-time", required_argument, 0, MIN_CPU_TIME_OPT},
     {"ignore-calls", required_argument, 0, IGNORE_CALLS_OPT},
+    {"wait-for-idle", no_argument, 0, WAIT_FOR_IDLE_OPT},
     {"version", no_argument, 0, VERSION_OPT},
     {0, 0, 0, 0}
 };
@@ -1391,6 +1394,9 @@ int main(int argc, char **argv)
             }
 
             retrace::callsToIgnore.merge(optarg);
+            break;
+        case WAIT_FOR_IDLE_OPT:
+            retrace::waitForIdle = true;
             break;
         case VERSION_OPT:
             std::cout << "apitrace " APITRACE_VERSION << std::endl;

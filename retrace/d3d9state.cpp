@@ -316,5 +316,40 @@ dumpDevice(StateWriter &writer, IDirect3DSwapChain9 *pSwapChain)
     }
 }
 
+void
+waitForIdle(IDirect3DDevice9* pDevice)
+{
+    struct Vertex { float x, y, z; };
+    IDirect3DVertexBuffer9 *vb = nullptr;
+
+    // Create a dynamic vertex buffer
+    if (SUCCEEDED(pDevice->CreateVertexBuffer(sizeof(Vertex) * 3,
+                                             D3DUSAGE_DYNAMIC,
+                                             D3DFVF_XYZ,
+                                             D3DPOOL_DEFAULT,
+                                             &vb,
+                                             nullptr)))
+    {
+        // Fill dummy triangle (degenerate and off-screen)
+        Vertex* vertices = nullptr;
+        if (SUCCEEDED(vb->Lock(0, 0, (void**)&vertices, D3DLOCK_DISCARD)))
+        {
+            vertices[0] = { -1e5f, -1e5f, 0.0f };
+            vertices[1] = { -1e5f, -1e5f, 0.0f };
+            vertices[2] = { -1e5f, -1e5f, 0.0f };
+            vb->Unlock();
+        }
+
+        pDevice->SetStreamSource(0, vb, 0, sizeof(Vertex));
+        pDevice->SetFVF(D3DFVF_XYZ);
+        pDevice->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 1);
+
+        // This Lock will now sync with GPU since the buffer was actually used
+        if (SUCCEEDED(vb->Lock(0, 0, (void**)&vertices, 0)))
+            vb->Unlock();
+
+        vb->Release();
+    }
+}
 
 } /* namespace d3dstate */

@@ -86,6 +86,8 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice8 *pDevice);
 void
 dumpDevice(StateWriter &writer, IDirect3DDevice8 *pDevice);
 
+void
+waitForIdle(IDirect3DDevice8* pDevice);
 
 /*
  * D3D9
@@ -109,6 +111,8 @@ getRenderTargetImage(IDirect3DDevice9 *pDevice);
 void
 dumpDevice(StateWriter &writer, IDirect3DSwapChain9 *pSwapChain);
 
+void
+waitForIdle(IDirect3DDevice9* pDevice);
 
 #ifdef HAVE_DXGI
 
