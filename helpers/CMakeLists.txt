@@ -14,7 +14,7 @@ add_convenience_library (glhelpers
 add_dependencies (glhelpers glproc)
 
 
-if (WIN32)
+if (WIN32 OR ENABLE_DXVK_NATIVE_D3D_RETRACE)
     add_convenience_library (d3dhelpers
         d3dshader.cpp
     )

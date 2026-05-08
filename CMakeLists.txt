@@ -52,8 +52,19 @@ option (BUILD_TESTING "Enable unit tests" ON)
 
 option (ENABLE_TESTS "Enable additional tests" OFF)
 
-if (ANDROID)
-    message (FATAL_ERROR "Android is no longer supported (https://git.io/vH2gW)")
+option (ENABLE_DXVK_NATIVE_D3D_RETRACE "Enable DXVK-native D3D8/D3D9 d3dretrace." OFF)
+
+if (ENABLE_DXVK_NATIVE_D3D_RETRACE)
+    set (ENABLE_CLI OFF CACHE BOOL "Enable command Line interface." FORCE)
+    set (ENABLE_GUI OFF CACHE STRING "Enable Qt GUI." FORCE)
+    set (ENABLE_X11 OFF CACHE BOOL "Enable X11 support." FORCE)
+    set (ENABLE_EGL OFF CACHE BOOL "Enable EGL support." FORCE)
+    set (BUILD_TESTING OFF CACHE BOOL "Enable unit tests" FORCE)
+    set (ENABLE_TESTS OFF CACHE BOOL "Enable additional tests" FORCE)
+endif ()
+
+if (ANDROID AND NOT ENABLE_DXVK_NATIVE_D3D_RETRACE)
+    message (FATAL_ERROR "Android is only supported for the DXVK-native d3dretrace path. Configure with -DENABLE_DXVK_NATIVE_D3D_RETRACE=ON.")
 endif ()
 
 # Proprietary Linux games often ship their own libraries (zlib, libstdc++,
@@ -167,7 +178,7 @@ find_package (Python3 REQUIRED)
 
 find_package (Threads)
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ENABLE_STATIC_EXE)
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ENABLE_STATIC_EXE AND NOT ENABLE_DXVK_NATIVE_D3D_RETRACE)
     find_package (procps)
     if (PROCPS_FOUND)
         add_definitions (-DHAVE_READPROC_H)
@@ -224,6 +235,8 @@ if (WIN32)
         endif ()
     endif ()
 
+    set (ENABLE_EGL false)
+elseif (ENABLE_DXVK_NATIVE_D3D_RETRACE)
     set (ENABLE_EGL false)
 elseif (APPLE)
     set (ENABLE_EGL false)
@@ -472,6 +485,63 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_definitions (-D_GNU_SOURCE)
 endif ()
 
+if (ENABLE_DXVK_NATIVE_D3D_RETRACE)
+    add_definitions (-DAPITRACE_DXVK_NATIVE)
+
+    set (DXVK_NATIVE_ROOT "" CACHE PATH "DXVK native source/install root.")
+    set (DXVK_NATIVE_INCLUDE_DIR "" CACHE PATH "DXVK native include/native directory.")
+    set (DXVK_NATIVE_D3D8_LIBRARY "" CACHE FILEPATH "DXVK native D3D8 library.")
+    set (DXVK_NATIVE_D3D9_LIBRARY "" CACHE FILEPATH "DXVK native D3D9 library.")
+
+    if (NOT DXVK_NATIVE_INCLUDE_DIR)
+        find_path (DXVK_NATIVE_INCLUDE_DIR
+            NAMES windows/windows.h directx/d3d9.h directx/d3d8.h
+            HINTS
+                ${DXVK_NATIVE_ROOT}/include/native
+                ${DXVK_NATIVE_ROOT}
+            DOC "DXVK native include/native directory."
+        )
+    endif ()
+
+    if (NOT DXVK_NATIVE_D3D8_LIBRARY)
+        find_library (DXVK_NATIVE_D3D8_LIBRARY
+            NAMES dxvk_d3d8 d3d8
+            HINTS
+                ${DXVK_NATIVE_ROOT}/lib
+                ${DXVK_NATIVE_ROOT}/lib64
+                ${DXVK_NATIVE_ROOT}
+            DOC "DXVK native D3D8 library."
+        )
+    endif ()
+
+    if (NOT DXVK_NATIVE_D3D9_LIBRARY)
+        find_library (DXVK_NATIVE_D3D9_LIBRARY
+            NAMES dxvk_d3d9 d3d9
+            HINTS
+                ${DXVK_NATIVE_ROOT}/lib
+                ${DXVK_NATIVE_ROOT}/lib64
+                ${DXVK_NATIVE_ROOT}
+            DOC "DXVK native D3D9 library."
+        )
+    endif ()
+
+    if (NOT DXVK_NATIVE_INCLUDE_DIR)
+        message (FATAL_ERROR "DXVK native headers not found. Set DXVK_NATIVE_ROOT or DXVK_NATIVE_INCLUDE_DIR.")
+    endif ()
+    if (NOT DXVK_NATIVE_D3D8_LIBRARY)
+        message (FATAL_ERROR "DXVK native D3D8 library not found. Set DXVK_NATIVE_ROOT or DXVK_NATIVE_D3D8_LIBRARY.")
+    endif ()
+    if (NOT DXVK_NATIVE_D3D9_LIBRARY)
+        message (FATAL_ERROR "DXVK native D3D9 library not found. Set DXVK_NATIVE_ROOT or DXVK_NATIVE_D3D9_LIBRARY.")
+    endif ()
+
+    include_directories (BEFORE SYSTEM
+        ${DXVK_NATIVE_INCLUDE_DIR}
+        ${DXVK_NATIVE_INCLUDE_DIR}/windows
+        ${DXVK_NATIVE_INCLUDE_DIR}/directx
+    )
+endif ()
+
 include (TestBigEndian)
 test_big_endian (HAVE_BIGENDIAN)
 if (HAVE_BIGENDIAN)
@@ -542,7 +612,7 @@ set (WRAPPER_INSTALL_DIR ${LIB_ARCH_INSTALL_DIR}/wrappers)
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/compat)
 
-if (NOT WIN32 AND NOT ENABLE_STATIC_EXE)
+if (NOT WIN32 AND NOT ENABLE_STATIC_EXE AND NOT ENABLE_DXVK_NATIVE_D3D_RETRACE)
 
     if (NOT ENABLE_STATIC_SNAPPY)
         find_package (Snappy CONFIG)
@@ -599,9 +669,13 @@ include_directories (
 add_subdirectory (lib)
 add_subdirectory (dispatch)
 add_subdirectory (helpers)
-add_subdirectory (wrappers)
+if (NOT ENABLE_DXVK_NATIVE_D3D_RETRACE)
+    add_subdirectory (wrappers)
+endif ()
 add_subdirectory (retrace)
-add_subdirectory (frametrim)
+if (NOT ENABLE_DXVK_NATIVE_D3D_RETRACE)
+    add_subdirectory (frametrim)
+endif ()
 
 
 ##############################################################################

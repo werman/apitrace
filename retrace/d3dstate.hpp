@@ -28,7 +28,11 @@
 
 #include <iostream>
 
+#if defined(APITRACE_DXVK_NATIVE)
+#include "d3d_native.hpp"
+#else
 #include <windows.h>
+#endif
 
 #ifdef HAVE_DXGI
 #include <dxgiformat.h>
@@ -168,5 +172,4 @@ dumpDevice(StateWriter &writer, ID3D11DeviceContext *pDeviceContext);
 
 
 } /* namespace d3dstate */
-
 

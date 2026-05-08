@@ -160,7 +160,7 @@ if (WIN32 OR APPLE OR X11_FOUND)
         )
     endif ()
 
-    install (TARGETS glretrace RUNTIME DESTINATION bin) 
+    install (TARGETS glretrace RUNTIME DESTINATION bin)
     install_pdb (glretrace DESTINATION bin)
 endif ()
 
@@ -208,7 +208,10 @@ if (ENABLE_EGL AND ENABLE_WAFFLE)
     install (TARGETS eglretrace RUNTIME DESTINATION bin)
 endif ()
 
-if (WIN32)
+if (WIN32 OR ENABLE_DXVK_NATIVE_D3D_RETRACE)
+    set (D3DRETRACE_SOURCES)
+    set (D3DSTATE_SOURCES)
+
     if (DirectX_D3D_INCLUDE_FOUND)
         include_directories (BEFORE SYSTEM ${DirectX_D3D_INCLUDE_DIR})
         add_custom_command (
@@ -230,11 +233,20 @@ if (WIN32)
             d3d7state.cpp
             d3d7state_images.cpp
         )
-    else ()
+        set (D3DRETRACE_SOURCES ${D3DRETRACE_SOURCES}
+            d3dretrace_ddraw.cpp
+        )
+    elseif (WIN32)
         message (FATAL_ERROR "d3d.h is required.")
     endif ()
 
-    if (DirectX_D3D8_INCLUDE_FOUND)
+    if (ENABLE_DXVK_NATIVE_D3D_RETRACE)
+        set (HAVE_D3D8 1)
+        set (D3DSTATE_SOURCES ${D3DSTATE_SOURCES}
+            d3d8state.cpp
+            d3d8state_images.cpp
+        )
+    elseif (DirectX_D3D8_INCLUDE_FOUND)
         include_directories (BEFORE SYSTEM ${DirectX_D3D8_INCLUDE_DIR})
         set (HAVE_D3D8 1)
         set (D3DSTATE_SOURCES ${D3DSTATE_SOURCES}
@@ -246,7 +258,7 @@ if (WIN32)
     endif ()
     add_custom_command (
         OUTPUT d3dretrace_d3d8.cpp
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/d3d9retrace.py d3d8 ${HAVE_D3D8} > ${CMAKE_CURRENT_BINARY_DIR}/d3dretrace_d3d8.cpp
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/d3d9retrace.py d3d8 ${HAVE_D3D8} $<$<BOOL:${ENABLE_DXVK_NATIVE_D3D_RETRACE}>:native> > ${CMAKE_CURRENT_BINARY_DIR}/d3dretrace_d3d8.cpp
         DEPENDS
             d3d9retrace.py
             dllretrace.py
@@ -258,8 +270,13 @@ if (WIN32)
             ${CMAKE_SOURCE_DIR}/specs/winapi.py
             ${CMAKE_SOURCE_DIR}/specs/stdapi.py
     )
+    set (D3DRETRACE_SOURCES ${D3DRETRACE_SOURCES}
+        d3dretrace_d3d8.cpp
+    )
 
-    if (DirectX_D3D9_INCLUDE_FOUND)
+    if (ENABLE_DXVK_NATIVE_D3D_RETRACE)
+        set (HAVE_D3D9 1)
+    elseif (DirectX_D3D9_INCLUDE_FOUND)
         include_directories (BEFORE SYSTEM ${DirectX_D3D9_INCLUDE_DIR})
         set (HAVE_D3D9 1)
     else ()
@@ -267,7 +284,7 @@ if (WIN32)
     endif ()
     add_custom_command (
         OUTPUT d3dretrace_d3d9.cpp
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/d3d9retrace.py d3d9 ${HAVE_D3D9} > ${CMAKE_CURRENT_BINARY_DIR}/d3dretrace_d3d9.cpp
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/d3d9retrace.py d3d9 ${HAVE_D3D9} $<$<BOOL:${ENABLE_DXVK_NATIVE_D3D_RETRACE}>:native> > ${CMAKE_CURRENT_BINARY_DIR}/d3dretrace_d3d9.cpp
         DEPENDS
             d3d9retrace.py
             dllretrace.py
@@ -280,8 +297,11 @@ if (WIN32)
             ${CMAKE_SOURCE_DIR}/specs/winapi.py
             ${CMAKE_SOURCE_DIR}/specs/stdapi.py
     )
+    set (D3DRETRACE_SOURCES ${D3DRETRACE_SOURCES}
+        d3dretrace_d3d9.cpp
+    )
 
-    if (DirectX_D3D11_4_INCLUDE_FOUND)
+    if (WIN32 AND DirectX_D3D11_4_INCLUDE_FOUND)
         add_definitions (-DHAVE_DXGI)
         include_directories (BEFORE SYSTEM
             ${DirectX_D3D11_4_INCLUDE_DIR}
@@ -332,22 +352,31 @@ if (WIN32)
 
     add_executable (d3dretrace
         d3dretrace_main.cpp
-        d3dretrace_ddraw.cpp
-        d3dretrace_d3d8.cpp
-        d3dretrace_d3d9.cpp
-        d3dretrace_dxgi_priv.cpp
+        ${D3DRETRACE_SOURCES}
         d3dretrace_ws.cpp
         d3d9state.cpp
         d3d9state_formats.cpp
         d3d9state_images.cpp
         ${D3DSTATE_SOURCES}
     )
+    if (WIN32)
+        target_sources (d3dretrace PRIVATE d3dretrace_dxgi_priv.cpp)
+    endif ()
     target_link_libraries (d3dretrace
         retrace_common
         d3dhelpers
-        ole32
     )
-    if (DirectX_D3D11_4_INCLUDE_FOUND)
+    if (WIN32)
+        target_link_libraries (d3dretrace ole32)
+    endif ()
+    if (ENABLE_DXVK_NATIVE_D3D_RETRACE)
+        target_link_libraries (d3dretrace
+            ${DXVK_NATIVE_D3D8_LIBRARY}
+            ${DXVK_NATIVE_D3D9_LIBRARY}
+            ${CMAKE_DL_LIBS}
+        )
+    endif ()
+    if (WIN32 AND DirectX_D3D11_4_INCLUDE_FOUND)
         target_link_libraries (d3dretrace directxtex)
     endif ()
 

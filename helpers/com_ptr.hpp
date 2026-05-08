@@ -28,7 +28,11 @@
 
 #include <assert.h>
 
+#if defined(APITRACE_DXVK_NATIVE)
+#include "d3d_native.hpp"
+#else
 #include <windows.h>
+#endif
 
 
 /**
@@ -107,6 +111,5 @@ public:
     com_ptr(const com_ptr &) = delete;
     com_ptr & operator= (const com_ptr &) = delete;
 };
-
 
 

@@ -29,7 +29,11 @@
 
 #pragma once
 
+#if defined(APITRACE_DXVK_NATIVE)
+#include "d3d_native.hpp"
+#else
 #include <windows.h>
+#endif
 
 #include "winsdk_compat.h"
 

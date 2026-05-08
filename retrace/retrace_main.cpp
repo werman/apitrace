@@ -1140,6 +1140,7 @@ int main(int argc, char **argv)
     int loopCount = 0;
     int i;
     bool snapshotThreaded = false;
+    bool useCallNosExplicit = false;
 
     os::setDebugOutput(os::OUTPUT_STDERR);
 
@@ -1177,6 +1178,7 @@ int main(int argc, char **argv)
             break;
         case CALL_NOS_OPT:
             useCallNos = trace::boolOption(optarg);
+            useCallNosExplicit = true;
             break;
         case 'D':
             dumpStateCallNo = atoi(optarg);
@@ -1426,6 +1428,9 @@ int main(int argc, char **argv)
 
     if (loopCount) {
         std::cerr << "warning: --loop blindly repeats the last frame calls, therefore frames might not necessarily render correctly (https://github.com/apitrace/apitrace/issues/800)" << std::endl;
+        if (dumpingSnapshots && !useCallNosExplicit) {
+            useCallNos = false;
+        }
     }
 
 #ifndef _WIN32
