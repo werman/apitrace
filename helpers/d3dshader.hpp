@@ -26,7 +26,11 @@
 #pragma once
 
 
+#if defined(APITRACE_DXVK_NATIVE)
+#include "d3d_native.hpp"
+#else
 #include <windows.h>
+#endif
 
 // Matches ID3DXBuffer, ID3D10Blob, ID3DBlob
 struct IDisassemblyBuffer : public IUnknown {
@@ -45,5 +49,4 @@ DisassembleShader(const DWORD *tokens, IDisassemblyBuffer **ppDisassembly);
 // D3D10 and higher
 HRESULT
 DisassembleShader(const void *pShader, SIZE_T BytecodeLength, IDisassemblyBuffer **ppDisassembly);
-
 

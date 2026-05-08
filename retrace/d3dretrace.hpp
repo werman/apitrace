@@ -26,7 +26,11 @@
 #pragma once
 
 
+#if defined(APITRACE_DXVK_NATIVE)
+#include "d3d_native.hpp"
+#else
 #include <windows.h>
+#endif
 
 #include "retrace.hpp"
 #include "d3dstate.hpp"
@@ -102,5 +106,4 @@ processEvents(void);
 
 
 } /* namespace d3dretrace */
-
 

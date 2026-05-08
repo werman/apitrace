@@ -29,10 +29,30 @@
 
 import sys
 from dllretrace import DllRetracer as Retracer
+from dispatch import Dispatcher
+from retrace import Retracer as BaseRetracer
 from specs.stdapi import API
 
 
+class NativeD3DDispatcher(Dispatcher):
+
+    def dispatchModule(self, module):
+        tag = module.name.upper()
+        print(r'static PROC')
+        print(r'_get%sProcAddress(LPCSTR lpProcName) {' % tag)
+        print(r'    return GetProcAddress(NULL, lpProcName);')
+        print(r'}')
+        print()
+
+        Dispatcher.dispatchModule(self, module)
+
+    def getProcAddressName(self, module, function):
+        return '_get%sProcAddress' % (module.name.upper())
+
+
 class D3DRetracer(Retracer):
+    def __init__(self, native = False):
+        self.native = native
 
     def retraceApi(self, api):
         print('// Swizzling mapping for lock addresses')
@@ -40,10 +60,17 @@ class D3DRetracer(Retracer):
         print('static std::map<MappingKey, void *> _maps;')
         print()
 
-        Retracer.retraceApi(self, api)
+        if self.native:
+            for module in api.modules:
+                dispatcher = NativeD3DDispatcher()
+                dispatcher.dispatchModule(module)
+
+            BaseRetracer.retraceApi(self, api)
+        else:
+            Retracer.retraceApi(self, api)
 
     def invokeFunction(self, function):
-        if function.name.startswith('Direct3DCreate9'):
+        if function.name.startswith('Direct3DCreate9') and not self.native:
             print(r'    if (retrace::debug >= 3 && !g_szD3D9DllName && LoadLibraryA("d3d9d.dll")) {')
             print(r'        /*')
             print(r'         * D3D9D only works for simple applications, it will often report bogus errors')
@@ -57,12 +84,12 @@ class D3DRetracer(Retracer):
 
         # d3d8d.dll can be found in the Aug 2007 DXSDK.  It works on XP, but
         # not on Windows 7.
-        if function.name.startswith('Direct3DCreate8'):
+        if function.name.startswith('Direct3DCreate8') and not self.native:
             print(r'    if (retrace::debug >= 3 && !g_szD3D8DllName && LoadLibraryA("d3d8d.dll")) {')
             print(r'        g_szD3D8DllName = "d3d8d.dll";')
             print(r'    }')
 
-        if function.name.startswith('Direct3DCreate9'):
+        if function.name.startswith('Direct3DCreate9') and not self.native:
             print(r'    // 0: default')
             print(r'    // 1: force discrete')
             print(r'    // 2: prefer integrated?')
@@ -186,18 +213,32 @@ class D3DRetracer(Retracer):
 
         # create windows as neccessary
         if method.name in ('CreateDevice', 'CreateDeviceEx', 'CreateAdditionalSwapChain'):
-            print(r'    HWND hWnd = pPresentationParameters->hDeviceWindow;')
-            if 'hFocusWindow' in method.argNames():
-                print(r'    if (hWnd == NULL) {')
-                print(r'        hWnd = hFocusWindow;')
+            if self.native:
+                print(r'    if (!pPresentationParameters->BackBufferWidth) {')
+                print(r'        pPresentationParameters->BackBufferWidth = 1;')
                 print(r'    }')
-            print(r'    hWnd = d3dretrace::createWindow(hWnd, pPresentationParameters->BackBufferWidth, pPresentationParameters->BackBufferHeight);')
-            print(r'    pPresentationParameters->hDeviceWindow = hWnd;')
-            if 'hFocusWindow' in method.argNames():
-                print(r'    hFocusWindow = hWnd;')
+                print(r'    if (!pPresentationParameters->BackBufferHeight) {')
+                print(r'        pPresentationParameters->BackBufferHeight = 1;')
+                print(r'    }')
+                print(r'    pPresentationParameters->hDeviceWindow = NULL;')
+                if 'hFocusWindow' in method.argNames():
+                    print(r'    hFocusWindow = NULL;')
+            else:
+                print(r'    HWND hWnd = pPresentationParameters->hDeviceWindow;')
+                if 'hFocusWindow' in method.argNames():
+                    print(r'    if (hWnd == NULL) {')
+                    print(r'        hWnd = hFocusWindow;')
+                    print(r'    }')
+                print(r'    hWnd = d3dretrace::createWindow(hWnd, pPresentationParameters->BackBufferWidth, pPresentationParameters->BackBufferHeight);')
+                print(r'    pPresentationParameters->hDeviceWindow = hWnd;')
+                if 'hFocusWindow' in method.argNames():
+                    print(r'    hFocusWindow = hWnd;')
 
             # force windowed mode
-            print(r'    if (retrace::forceWindowed) {')
+            if self.native:
+                print(r'    if (true) {')
+            else:
+                print(r'    if (retrace::forceWindowed) {')
             print(r'        pPresentationParameters->Windowed = TRUE;')
             print(r'        pPresentationParameters->FullScreen_RefreshRateInHz = 0;')
             if interface.name.startswith('IDirect3D9'):
@@ -236,8 +277,20 @@ class D3DRetracer(Retracer):
                 print(r'    }')
 
         if method.name in ('Reset', 'ResetEx'):
+            if self.native:
+                print(r'    if (!pPresentationParameters->BackBufferWidth) {')
+                print(r'        pPresentationParameters->BackBufferWidth = 1;')
+                print(r'    }')
+                print(r'    if (!pPresentationParameters->BackBufferHeight) {')
+                print(r'        pPresentationParameters->BackBufferHeight = 1;')
+                print(r'    }')
+                print(r'    pPresentationParameters->hDeviceWindow = NULL;')
+
             # force windowed mode
-            print(r'    if (retrace::forceWindowed) {')
+            if self.native:
+                print(r'    if (true) {')
+            else:
+                print(r'    if (retrace::forceWindowed) {')
             print(r'        pPresentationParameters->Windowed = TRUE;')
             print(r'        pPresentationParameters->FullScreen_RefreshRateInHz = 0;')
             if interface.name.startswith('IDirect3DDevice9'):
@@ -407,19 +460,22 @@ def main():
 
     moduleName = sys.argv[1]
     support = int(sys.argv[2])
+    native = len(sys.argv) > 3 and sys.argv[3] == 'native'
 
     api = API()
     
     if support:
         if moduleName == 'd3d9':
             from specs.d3d9 import d3d9, d3dperf
-            from specs.dxva2 import dxva2
             print(r'#include "d3d9imports.hpp"')
             print(r'#include "d3d9size.hpp"')
-            print(r'#include "dxva2imports.hpp"')
+            if not native:
+                from specs.dxva2 import dxva2
+                print(r'#include "dxva2imports.hpp"')
             d3d9.mergeModule(d3dperf)
             api.addModule(d3d9)
-            api.addModule(dxva2)
+            if not native:
+                api.addModule(dxva2)
             print()
             print('''static d3dretrace::D3DDumper<IDirect3DDevice9> d3d9Dumper;''')
             print('''static d3dretrace::D3DDumper<IDirect3DSwapChain9> d3d9scDumper;''')
@@ -435,7 +491,7 @@ def main():
         else:
             assert False
 
-    retracer = D3DRetracer()
+    retracer = D3DRetracer(native)
     retracer.table_name = 'd3dretrace::%s_callbacks' % moduleName
     retracer.retraceApi(api)
 

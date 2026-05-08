@@ -30,7 +30,7 @@
 #include "os_time.hpp"
 #include "retrace.hpp"
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #include <dxerr.h>
 #endif
 
@@ -65,7 +65,7 @@ std::ostream &warning(trace::Call &call) {
 }
 
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(APITRACE_DXVK_NATIVE)
 void
 failed(trace::Call &call, HRESULT hr)
 {
@@ -73,6 +73,7 @@ failed(trace::Call &call, HRESULT hr)
 
     os << "failed with 0x" << std::hex << hr << std::dec;
 
+#if defined(_WIN32)
     LPCSTR lpszErrorString = DXGetErrorStringA(hr);
     assert(lpszErrorString);
     os << " (" << lpszErrorString << "): ";
@@ -80,10 +81,13 @@ failed(trace::Call &call, HRESULT hr)
     char szErrorDesc[512];
     DXGetErrorDescriptionA(hr, szErrorDesc, sizeof szErrorDesc);
     os << szErrorDesc;
+#else
+    os << " (D3D HRESULT)";
+#endif
 
     os << "\n";
 }
-#endif /* _WIN32 */
+#endif /* _WIN32 || APITRACE_DXVK_NATIVE */
 
 
 void

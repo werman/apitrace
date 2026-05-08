@@ -34,7 +34,9 @@
 #include <map>
 #include <ostream>
 
-#ifdef _WIN32
+#if defined(APITRACE_DXVK_NATIVE)
+#include "d3d_native.hpp"
+#elif defined(_WIN32)
 #include <windows.h>
 #endif
 
@@ -207,7 +209,7 @@ extern trace::DumpFlags dumpFlags;
 
 std::ostream &warning(trace::Call &call);
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(APITRACE_DXVK_NATIVE)
 void failed(trace::Call &call, HRESULT hr);
 #endif
 
@@ -309,4 +311,3 @@ cleanUp(void);
 
 
 } /* namespace retrace */
-

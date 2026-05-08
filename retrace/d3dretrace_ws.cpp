@@ -28,7 +28,9 @@
 
 #include "d3dretrace.hpp"
 
+#if !defined(APITRACE_DXVK_NATIVE)
 #include "ws_win32.hpp"
+#endif
 
 
 namespace d3dretrace {
@@ -37,6 +39,11 @@ namespace d3dretrace {
 HWND
 createWindow(int width, int height)
 {
+#if defined(APITRACE_DXVK_NATIVE)
+    (void)width;
+    (void)height;
+    return NULL;
+#else
     HWND hWnd;
 
     hWnd = ws::createWindow("d3dretrace", width, height);
@@ -44,16 +51,25 @@ createWindow(int width, int height)
     ws::showWindow(hWnd);
 
     return hWnd;
+#endif
 }
 
 
+#if !defined(APITRACE_DXVK_NATIVE)
 typedef std::map<HWND, HWND> HWND_MAP;
 static HWND_MAP g_hWndMap;
+#endif
 
 
 HWND
 createWindow(HWND hWnd, int width, int height)
 {
+#if defined(APITRACE_DXVK_NATIVE)
+    (void)hWnd;
+    (void)width;
+    (void)height;
+    return NULL;
+#else
     HWND_MAP::iterator it;
     it = g_hWndMap.find(hWnd);
     if (it == g_hWndMap.end()) {
@@ -66,20 +82,31 @@ createWindow(HWND hWnd, int width, int height)
         ws::resizeWindow(hWnd, width, height);
     }
     return hWnd;
+#endif
 }
 
 
 void
 resizeWindow(HWND hWnd, int width, int height)
 {
+#if defined(APITRACE_DXVK_NATIVE)
+    (void)hWnd;
+    (void)width;
+    (void)height;
+#else
     ws::resizeWindow(hWnd, width, height);
+#endif
 }
 
 
 bool
 processEvents(void)
 {
+#if defined(APITRACE_DXVK_NATIVE)
+    return false;
+#else
     return ws::processEvents();
+#endif
 }
 
 
