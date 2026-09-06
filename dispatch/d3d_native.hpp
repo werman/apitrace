@@ -8,6 +8,11 @@
 
 #if defined(APITRACE_DXVK_NATIVE)
 
+// DXVK 2.7.1's native headers omit the Win32 path-length constant.
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
