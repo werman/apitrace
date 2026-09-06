@@ -29,6 +29,7 @@
 #include <string.h>
 #include <atomic>
 #include <chrono>
+#include <errno.h>
 #include <limits.h> // for CHAR_MAX
 #include <memory> // for unique_ptr
 #include <iostream>
@@ -378,6 +379,25 @@ static void
 takeSnapshot(unsigned call_no, bool backBuffer)
 {
     static unsigned snapshot_no = 0;
+#if defined(__ANDROID__)
+    static const unsigned snapshot_limit = []() {
+        const char *count = getenv("DRIVER_CI_SCREENSHOT_COUNT");
+        if (!count)
+            return UINT_MAX;
+        char *end = nullptr;
+        errno = 0;
+        unsigned long value = strtoul(count, &end, 10);
+        if (!*count || *count == '-' || *end || errno || value > UINT_MAX) {
+            std::cerr << "Invalid DRIVER_CI_SCREENSHOT_COUNT\n";
+            exit(EXIT_FAILURE);
+        }
+        return static_cast<unsigned>(value);
+    }();
+    if (snapshot_no >= snapshot_limit) {
+        snapshot_done = true;
+        return;
+    }
+#endif
     int cnt = dumper->getSnapshotCount();
 
     if (retrace::snapshotMRT) {
