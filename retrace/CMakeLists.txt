@@ -210,6 +210,9 @@ endif ()
 
 if (WIN32 OR ENABLE_DXVK_NATIVE_D3D_RETRACE)
     set (D3DRETRACE_SOURCES)
+    if (ANDROID AND ENABLE_DXVK_NATIVE_D3D_RETRACE)
+        list (APPEND D3DRETRACE_SOURCES d3dretrace_timing.cpp)
+    endif ()
     set (D3DSTATE_SOURCES)
 
     if (DirectX_D3D_INCLUDE_FOUND)

@@ -38,6 +38,16 @@
 
 namespace d3dretrace {
 
+#if defined(__ANDROID__) && defined(APITRACE_DXVK_NATIVE)
+void startFrameTiming(IUnknown *device = nullptr);
+void endFrameTiming();
+void releaseFrameTiming(IUnknown *device);
+#else
+inline void startFrameTiming(IUnknown * = nullptr) {}
+inline void endFrameTiming() {}
+inline void releaseFrameTiming(IUnknown *) {}
+#endif
+
 
 extern const retrace::Entry ddraw_callbacks[];
 extern const retrace::Entry d3d8_callbacks[];

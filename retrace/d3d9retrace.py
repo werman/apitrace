@@ -160,6 +160,8 @@ class D3DRetracer(Retracer):
             print(r'    }')
 
     def invokeInterfaceMethod(self, interface, method):
+        if method.name == 'Release':
+            print(r'    if (call.ret->toUInt() == 0) d3dretrace::releaseFrameTiming(_this);')
         # keep track of the last used device for state dumping
         if interface.name in ('IDirect3DDevice9', 'IDirect3DDevice9Ex'):
             if method.name == 'Release':
@@ -311,6 +313,7 @@ class D3DRetracer(Retracer):
         if method.name in ('Present', 'PresentEx'):
             if interface.name.startswith('IDirect3DSwapChain9'):
                 print(r'    d3d9scDumper.bindDevice(_this);')
+            print(r'    d3dretrace::endFrameTiming();')
             print(r'    retrace::frameComplete(call);')
             print(r'    hDestWindowOverride = NULL;')
 
@@ -372,6 +375,11 @@ class D3DRetracer(Retracer):
             print(r'    }')
 
         Retracer.invokeInterfaceMethod(self, interface, method)
+
+        if self.native and method.name in self.createDeviceMethodNames:
+            print(r'    if (SUCCEEDED(_result)) d3dretrace::startFrameTiming(*ppReturnedDeviceInterface);')
+        if method.name in ('Present', 'PresentEx'):
+            print(r'    d3dretrace::startFrameTiming();')
 
         # process events after presents
         if method.name == 'Present':
