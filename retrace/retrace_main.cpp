@@ -56,6 +56,7 @@
 #include "trace_dump.hpp"
 #include "trace_option.hpp"
 #include "retrace.hpp"
+#include "retrace_call_filter.hpp"
 #include "state_writer.hpp"
 #include "ws.hpp"
 #include "process_name.hpp"
@@ -63,6 +64,7 @@
 
 
 static bool waitOnFinish = false;
+static bool ignoreCursor = false;
 
 static const char *snapshotPrefix = "";
 static enum {
@@ -422,6 +424,10 @@ takeSnapshot(unsigned call_no, bool backBuffer)
 static void
 retraceCall(trace::Call *call) {
     callNo = call->no;
+
+    if (ignoreCursor && isD3DCursorCall(call->name())) {
+        return;
+    }
 
     if (ignoreCalls && callsToIgnore.contains(callNo)) {
         return;
@@ -844,6 +850,7 @@ usage(const char *argv0) {
         "      --no-context-check  don't check that the actual GL context version matches the requested version\n"
         "      --min-cpu-time=NANOSECONDS  ignore calls with less than this CPU time when profiling (default is 1000)\n"
         "      --ignore-calls=CALLSET    ignore calls in CALLSET\n"
+        "      --ignore-cursor     ignore D3D8/D3D9 cursor properties, position and visibility calls\n"
         "      --version           display version information and exit\n"
     ;
 }
@@ -885,6 +892,7 @@ enum {
     QUERY_HANDLING_OPT,
     QUERY_CHECK_TOLARANCE_OPT,
     IGNORE_CALLS_OPT,
+    IGNORE_CURSOR_OPT,
     WAIT_FOR_IDLE_OPT,
     VERSION_OPT,
 };
@@ -940,6 +948,7 @@ longOptions[] = {
     {"no-context-check", no_argument, 0, NO_CONTEXT_CHECK},
     {"min-cpu-time", required_argument, 0, MIN_CPU_TIME_OPT},
     {"ignore-calls", required_argument, 0, IGNORE_CALLS_OPT},
+    {"ignore-cursor", no_argument, 0, IGNORE_CURSOR_OPT},
     {"wait-for-idle", no_argument, 0, WAIT_FOR_IDLE_OPT},
     {"version", no_argument, 0, VERSION_OPT},
     {0, 0, 0, 0}
@@ -1427,6 +1436,9 @@ int main(int argc, char **argv)
         case VERSION_OPT:
             std::cout << "apitrace " APITRACE_VERSION << std::endl;
             return 0;
+        case IGNORE_CURSOR_OPT:
+            ignoreCursor = true;
+            break;
         default:
             std::cerr << "error: unknown option " << opt << "\n";
             usage(argv[0]);
