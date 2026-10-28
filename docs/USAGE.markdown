@@ -29,6 +29,11 @@ Replay an OpenGL trace with
 Pass the `--sb` option to use a single buffered visual.  Pass `--help` to
 `apitrace replay` for more options.
 
+For D3D8/D3D9 replays, `--ignore-cursor` skips `SetCursorProperties`,
+`SetCursorPosition`, and `ShowCursor` (including D3D9Ex). This opt-in workaround
+avoids cursor-related display-server failures in headless environments. It
+does not modify the trace, but can hide software cursors in the rendered image.
+
 On dual GPU macs one can choose the GPU by setting the `VENDOR` environment
 variable to the desired GPU vendor (e.g, `Intel`, or `AMD`.)
 
