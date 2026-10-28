@@ -67,7 +67,17 @@ int File::rawGetc()
     return c;
 }
 
-bool File::rawSkip(size_t)
+bool File::rawSkip(size_t length)
 {
-    return false;
+    // Non-seekable compression backends must still support parser scan mode.
+    // Discard decompressed bytes in bounded chunks instead of allocating a blob.
+    char buffer[4096];
+    while (length) {
+        size_t count = rawRead(buffer, length < sizeof buffer ? length : sizeof buffer);
+        if (!count) {
+            return false;
+        }
+        length -= count;
+    }
+    return true;
 }
