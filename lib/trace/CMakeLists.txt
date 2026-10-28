@@ -44,4 +44,6 @@ target_link_libraries(common
 if (BUILD_TESTING)
     add_gtest (trace_parser_flags_test trace_parser_flags_test.cpp)
     target_link_libraries (trace_parser_flags_test common)
+    add_gtest (trace_parser_loop_test trace_parser_loop_test.cpp)
+    target_link_libraries (trace_parser_loop_test common PkgConfig::BROTLIENC)
 endif ()

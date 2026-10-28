@@ -33,16 +33,11 @@ namespace trace {
 // Decorator for parser which loops
 class LastFrameLoopParser : public AbstractParser  {
 public:
-    LastFrameLoopParser(AbstractParser *p, int c) {
-        parser = p;
-        loopCount = c;
-        starts_new_frame = true;
-    }
+    LastFrameLoopParser(AbstractParser *p, int c) :
+        requestedLoopCount(c), loopCount(c), parser(p) {}
 
     ~LastFrameLoopParser() {
-        for (auto c : lastFrameCalls)
-            delete c;
-        lastFrameCalls.clear();
+        clearCache();
         delete parser;
     }
 
@@ -52,55 +47,92 @@ public:
     void getBookmark(ParseBookmark &bookmark) override { parser->getBookmark(bookmark); }
     void setBookmark(const ParseBookmark &bookmark) override { parser->setBookmark(bookmark); }
     bool open(const char *filename) override;
-    void close(void) override { parser->close(); }
+    void close(void) override;
     unsigned long long getVersion(void) const override { return parser->getVersion(); }
     const Properties & getProperties(void) const override { return parser->getProperties(); }
 private:
+    const int requestedLoopCount;
     int loopCount;
-    bool starts_new_frame;
     AbstractParser *parser;
+    size_t callIndex = 0;
+    size_t finalFrameStart = 0;
+    size_t loopIndex = 0;
+    bool atEnd = false;
     std::vector<Call *> lastFrameCalls;
-    std::vector<Call *>::iterator lastFrameIterator;
+    void clearCache();
 };
 
 
 bool
 LastFrameLoopParser::open(const char *filename)
 {
+    close();
+    loopCount = requestedLoopCount;
+    callIndex = finalFrameStart = loopIndex = 0;
+    atEnd = false;
+
+    if (loopCount) {
+        // The last frame cannot be identified until EOF. Scan first without
+        // allocating argument blobs, then stream all preceding calls normally.
+        // Do not use bookmarks: Brotli and gzip traces are not seekable.
+        Parser scanner;
+        if (!scanner.open(filename)) {
+            return false;
+        }
+        size_t index = 0;
+        bool startsNewFrame = true;
+        while (Call *call = scanner.scan_call()) {
+            if (startsNewFrame) {
+                finalFrameStart = index;
+            }
+            startsNewFrame = call->flags & CALL_FLAG_END_FRAME;
+            ++index;
+            delete call;
+        }
+    }
+
     return parser->open(filename);
+}
+
+void
+LastFrameLoopParser::clearCache()
+{
+    for (auto call : lastFrameCalls) {
+        delete call;
+    }
+    lastFrameCalls.clear();
+}
+
+void
+LastFrameLoopParser::close()
+{
+    clearCache();
+    parser->close();
 }
 
 Call *
 LastFrameLoopParser::parse_call(void)
 {
-    trace::Call *call;
-
-    call = parser->parse_call();
-
-    /* Restart last frame when looping is requested. */
-    if (call) {
-        if (starts_new_frame) {
-            for (auto c : lastFrameCalls)
-                delete c;
-            lastFrameCalls.clear();
+    if (!atEnd) {
+        if (Call *call = parser->parse_call()) {
+            if (loopCount && callIndex >= finalFrameStart) {
+                call->reuse_call = true;
+                lastFrameCalls.push_back(call);
+            }
+            ++callIndex;
+            return call;
         }
-
-        call->reuse_call = true;
-        lastFrameCalls.push_back(call);
-        starts_new_frame = call->flags & trace::CALL_FLAG_END_FRAME;
-
-        lastFrameIterator = lastFrameCalls.begin();
-
-        return call;
+        atEnd = true;
     }
 
-    /* else */
-    if (loopCount) {
-        call = *lastFrameIterator;
-        ++lastFrameIterator;
-        if (lastFrameIterator == lastFrameCalls.end()) {
-            /* repeat the frame */
-            lastFrameIterator = lastFrameCalls.begin();
+    if (!loopCount || lastFrameCalls.empty()) {
+        return nullptr;
+    }
+
+    Call *call = lastFrameCalls[loopIndex++];
+    if (loopIndex == lastFrameCalls.size()) {
+        loopIndex = 0;
+        if (loopCount > 0) {
             --loopCount;
         }
     }

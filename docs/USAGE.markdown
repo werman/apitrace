@@ -34,6 +34,11 @@ For D3D8/D3D9 replays, `--ignore-cursor` skips `SetCursorProperties`,
 avoids cursor-related display-server failures in headless environments. It
 does not modify the trace, but can hide software cursors in the rendered image.
 
+`--loop[=N]` repeats the final frame. The replayer first scans the trace to find
+that frame, then caches only its decoded calls; setup and earlier frames are
+streamed rather than retained in RAM. This also works with Brotli/gzip traces,
+at the cost of an additional scan before replay begins.
+
 On dual GPU macs one can choose the GPU by setting the `VENDOR` environment
 variable to the desired GPU vendor (e.g, `Intel`, or `AMD`.)
 
