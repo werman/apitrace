@@ -319,6 +319,15 @@ dumpDevice(StateWriter &writer, IDirect3DSwapChain9 *pSwapChain)
 void
 waitForIdle(IDirect3DDevice9* pDevice)
 {
+    // SetFVF also replaces the vertex declaration. A state block preserves
+    // the declaration, shader, stream bindings and their COM references,
+    // including programmable/instanced state that a fixed-function dummy
+    // draw must temporarily override. Do not alter state if capture fails.
+    com_ptr<IDirect3DStateBlock9> savedState;
+    if (!pDevice || FAILED(pDevice->CreateStateBlock(D3DSBT_ALL, &savedState))) {
+        return;
+    }
+
     struct Vertex { float x, y, z; };
     IDirect3DVertexBuffer9 *vb = nullptr;
 
@@ -341,6 +350,8 @@ waitForIdle(IDirect3DDevice9* pDevice)
         }
 
         pDevice->SetStreamSource(0, vb, 0, sizeof(Vertex));
+        pDevice->SetStreamSourceFreq(0, 1);
+        pDevice->SetVertexShader(nullptr);
         pDevice->SetFVF(D3DFVF_XYZ);
         pDevice->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 1);
 
@@ -350,6 +361,8 @@ waitForIdle(IDirect3DDevice9* pDevice)
 
         vb->Release();
     }
+
+    savedState->Apply();
 }
 
 } /* namespace d3dstate */

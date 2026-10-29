@@ -299,6 +299,14 @@ dumpDevice(StateWriter &writer, IDirect3DDevice8 *pDevice)
 void
 waitForIdle(IDirect3DDevice8* pDevice)
 {
+    // The dummy draw changes the stream and vertex shader/FVF. Those bindings
+    // may live entirely in the setup frame, so the next (or looped) frame need
+    // not set them again. Preserve them, including the buffer references.
+    DWORD savedState = 0;
+    if (!pDevice || FAILED(pDevice->CreateStateBlock(D3DSBT_ALL, &savedState))) {
+        return;
+    }
+
     struct Vertex { float x, y, z; };
     IDirect3DVertexBuffer8 *vb = nullptr;
 
@@ -327,6 +335,9 @@ waitForIdle(IDirect3DDevice8* pDevice)
 
         vb->Release();
     }
+
+    pDevice->ApplyStateBlock(savedState);
+    pDevice->DeleteStateBlock(savedState);
 }
 
 } /* namespace d3dstate */
