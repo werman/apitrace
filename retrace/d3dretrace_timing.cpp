@@ -60,7 +60,13 @@ void startFrameTiming(IUnknown *d3dDevice) {
     const char *enabled = getenv("DRIVER_CI_FRAME_MARKERS");
     if (!enabled || enabled[0] != '1') return;
     if (d3dDevice) {
-        if (interop) fail("multiple D3D devices are unsupported");
+        if (interop) {
+            // Games may create a new device without releasing the old one
+            // (Armada 2 leaks three before presenting on the fourth); time
+            // the newest one.
+            shutdown();
+            active = false;
+        }
         timingDevice = d3dDevice;
         static const GUID iid = {0x2eaa4b89, 0x0107, 0x4bdb,
             {0x87, 0xf7, 0x0f, 0x54, 0x1c, 0x49, 0x3c, 0xe0}};
@@ -73,7 +79,11 @@ void startFrameTiming(IUnknown *d3dDevice) {
         if (!setFrame || !marker || !finish) fail("replay marker shim unavailable");
         interop->GetVulkanHandles(&instance, nullptr, &device);
         interop->GetSubmissionQueue(&queue, nullptr, &family);
-        atexit(shutdown);
+        static bool registered;
+        if (!registered) {
+            atexit(shutdown);
+            registered = true;
+        }
         return; // Initialization is unmarked; timing starts after the first Present.
     }
     if (!interop) fail("Present without an initialized timing device");
