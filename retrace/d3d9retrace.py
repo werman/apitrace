@@ -249,6 +249,12 @@ class D3DRetracer(Retracer):
                 print(r'        pPresentationParameters->FullScreen_PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;')
             print(r'    }')
 
+            # map the traced window to the replay window
+            if not self.native:
+                print(r'    if (pPresentationParameters->hDeviceWindow) {')
+                print(r'        pPresentationParameters->hDeviceWindow = d3dretrace::createWindow(pPresentationParameters->hDeviceWindow, pPresentationParameters->BackBufferWidth, pPresentationParameters->BackBufferHeight);')
+                print(r'    }')
+
             # resize window
             print(r'    if (pPresentationParameters->Windowed) {')
             print(r'        d3dretrace::resizeWindow(pPresentationParameters->hDeviceWindow, pPresentationParameters->BackBufferWidth, pPresentationParameters->BackBufferHeight);')

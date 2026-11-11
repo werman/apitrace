@@ -58,7 +58,11 @@ createWindow(HWND hWnd, int width, int height)
     it = g_hWndMap.find(hWnd);
     if (it == g_hWndMap.end()) {
         // Create a new window
+        HWND hTraced = hWnd;
         hWnd = createWindow(width, height);
+        if (hTraced) {
+            g_hWndMap[hTraced] = hWnd;
+        }
         g_hWndMap[hWnd] = hWnd;
     } else {
         // Reuse the existing window
